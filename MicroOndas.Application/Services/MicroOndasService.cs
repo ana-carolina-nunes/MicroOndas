@@ -1,8 +1,10 @@
 ﻿using MicroOndas.Application.Interfaces;
 using MicroOndas.Application.Models;
 using MicroOndas.Domain.Entities;
+using MicroOndas.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,19 +14,17 @@ namespace MicroOndas.Application.Services
     {
         private readonly List<ProgramaAquecimento> _programas;
         private CancellationTokenSource? _cts;
-        private Task? _loopTask;
+        private Task? _runningTask;
 
         private int _tempoRestante;
         private int _potenciaAtual;
         private string _caractereAquecimento = ".";
+        private readonly StringBuilder _processBuilder = new();
 
         public bool EmExecucao { get; private set; }
         public bool Pausado { get; private set; }
 
-        // 🔔 Evento disparado a cada segundo para atualizar UI
         public event Action? OnTick;
-
-        // 🔔 Evento disparado ao final do aquecimento
         public event Action? OnFinished;
 
         public MicroOndasService()
@@ -34,51 +34,44 @@ namespace MicroOndas.Application.Services
 
         public IReadOnlyList<ProgramaAquecimento> ObterProgramasPreDefinidos() => _programas;
 
-        // ============================
-        // 📌 INÍCIO MANUAL / RÁPIDO
-        // ============================
         public void IniciarAquecimento(int tempoSegundos, int potencia)
         {
+            // Se já em execução e não pausado -> acrescenta 30s (requisito 5).
             if (EmExecucao && !Pausado)
             {
-                // ✅ Regra: acrescentar +30 segundos se já está aquecendo
+                // manual: limite de 120s para entrada manual (não deixar ultrapassar)
                 _tempoRestante = Math.Min(_tempoRestante + 30, 120);
                 return;
             }
 
-            if (tempoSegundos <= 0)
-                throw new InvalidOperationException("Tempo deve ser maior que zero.");
-
-            if (tempoSegundos > 120)
-                throw new InvalidOperationException("Tempo máximo permitido no modo manual é 120 segundos.");
+            // validações do requisito Nível 1
+            if (tempoSegundos < 1 || tempoSegundos > 120)
+                throw new ArgumentException("Tempo deve estar entre 1 e 120 segundos para entrada manual.", nameof(tempoSegundos));
 
             if (potencia < 1 || potencia > 10)
-                throw new InvalidOperationException("A potência deve estar entre 1 e 10.");
+                throw new ArgumentException("Potência deve estar entre 1 e 10.", nameof(potencia));
 
             _tempoRestante = tempoSegundos;
             _potenciaAtual = potencia;
-            _caractereAquecimento = new string('.', potencia); // padrão
+            _caractereAquecimento = "."; // no manual usamos '.' por requisito
+            _processBuilder.Clear();
 
-            IniciarLoop();
+            StartLoop();
         }
 
-        // ============================
-        // 📌 INÍCIO PROGRAMA PRE-DEFINIDO
-        // ============================
         public void IniciarAquecimento(ProgramaAquecimento programa)
         {
             if (EmExecucao) return;
 
+            // Programas pré-definidos NÃO obedecem limite de 120s.
             _tempoRestante = programa.TempoSegundos;
             _potenciaAtual = programa.Potencia;
-            _caractereAquecimento = programa.CaractereAquecimento;
+            _caractereAquecimento = string.IsNullOrEmpty(programa.CaractereAquecimento) ? "#" : programa.CaractereAquecimento;
+            _processBuilder.Clear();
 
-            IniciarLoop();
+            StartLoop();
         }
 
-        // ============================
-        // 📌 CONTROLE
-        // ============================
         public void Pausar()
         {
             if (!EmExecucao || Pausado) return;
@@ -88,20 +81,29 @@ namespace MicroOndas.Application.Services
         public void Cancelar()
         {
             _cts?.Cancel();
-            Reset();
+            ResetState();
         }
 
-        private void Reset()
+        public string ObterDisplay()
         {
-            EmExecucao = false;
-            Pausado = false;
-            _tempoRestante = 0;
+            if (!EmExecucao)
+                return "Micro-ondas pronto.";
+
+            int mm = _tempoRestante / 60;
+            int ss = _tempoRestante % 60;
+            string tempo = $"{mm:D2}:{ss:D2}";
+
+            // Mostra também uma pequena representação de potência
+            string barras = new string(_caractereAquecimento[0], Math.Max(1, _potenciaAtual));
+            return $"{tempo} {barras}";
         }
 
-        // ============================
-        // 🔁 LOOP ASSÍNCRONO
-        // ============================
-        private void IniciarLoop()
+        public string ObterProcessoVisual() => _processBuilder.ToString();
+
+        // ----------------------------
+        // Loop assíncrono
+        // ----------------------------
+        private void StartLoop()
         {
             _cts?.Cancel();
             _cts = new CancellationTokenSource();
@@ -110,65 +112,75 @@ namespace MicroOndas.Application.Services
             EmExecucao = true;
             Pausado = false;
 
-            _loopTask = Task.Run(async () =>
+            _runningTask = Task.Run(async () =>
             {
                 try
                 {
-                    while (_tempoRestante > 0)
+                    while (_tempoRestante > 0 && !token.IsCancellationRequested)
                     {
-                        if (token.IsCancellationRequested) break;
-
                         if (!Pausado)
                         {
+                            // A cada segundo adicionamos a sequência definida:
+                            // se caractereAquecimento for ".", adiciona '.' repetido conforme potência
+                            // se for outro caractere (programa), usa esse char.
+                            string bloco = new string(_caractereAquecimento[0], Math.Max(1, _potenciaAtual));
+                            _processBuilder.Append(bloco);
+                            _processBuilder.Append(' ');
+
                             _tempoRestante--;
-                            OnTick?.Invoke(); // 🔔 Notifica UI
+                            OnTick?.Invoke();
                         }
 
-                        await Task.Delay(1000, token);
+                        try
+                        {
+                            await Task.Delay(1000, token);
+                        }
+                        catch (TaskCanceledException) { break; }
                     }
 
-                    if (!token.IsCancellationRequested)
+                    if (!token.IsCancellationRequested && _tempoRestante <= 0)
                     {
-                        Reset();
-                        OnFinished?.Invoke(); // 🔔 Final completo
+                        // finaliza normalmente
+                        EmExecucao = false;
+                        Pausado = false;
+                        OnFinished?.Invoke();
+                        return;
                     }
                 }
-                catch (TaskCanceledException) { }
+                catch (OperationCanceledException) { }
+                finally
+                {
+                    // se cancelado, limpamos o cancel token mas não disparamos OnFinished
+                    if (token.IsCancellationRequested)
+                    {
+                        ResetState();
+                    }
+                }
             }, token);
         }
 
-        // ============================
-        // ⏱ EXIBIR DISPLAY
-        // ============================
-        public string ObterDisplay()
+        private void ResetState()
         {
-            if (!EmExecucao)
-                return "Micro-ondas pronto.";
-
-            int min = _tempoRestante / 60;
-            int sec = _tempoRestante % 60;
-
-            string tempo = $"{min:00}:{sec:00}";
-            string barras = new string(_caractereAquecimento[0], _potenciaAtual);
-            return $"{tempo} {barras}";
+            EmExecucao = false;
+            Pausado = false;
+            _tempoRestante = 0;
+            _potenciaAtual = 0;
+            _caractereAquecimento = ".";
+            _processBuilder.Clear();
         }
 
-        // ============================
-        // 📦 PROGRAMAS FIXOS
-        // ============================
-        private static List<ProgramaAquecimento> InicializarProgramas() =>
-            new()
-            {
-                new ProgramaAquecimento("Pipoca", "Pipoca (de micro-ondas)", 180, 7, "P",
-                    "Observar estouros: se passar 10s sem barulho, interrompa."),
-                new ProgramaAquecimento("Leite", "Leite", 300, 5, "L",
-                    "Cuidado com líquidos: risco de fervura instantânea."),
-                new ProgramaAquecimento("Carnes de boi", "Carne em pedaço/fatias", 840, 4, "C",
-                    "Pause na metade e vire para aquecimento uniforme."),
-                new ProgramaAquecimento("Frango", "Frango (qualquer corte)", 480, 7, "F",
-                    "Pause na metade e vire para aquecimento uniforme."),
-                new ProgramaAquecimento("Feijão", "Feijão congelado", 480, 9, "#",
-                    "Recipiente destampado. Plástico pode perder resistência.")
-            };
+        private static List<ProgramaAquecimento> InicializarProgramas() => new()
+        {
+            new ProgramaAquecimento("Pipoca", "Pipoca (de micro-ondas)", 3 * 60, 7, "*",
+                "Observar o barulho de estouros. Caso haja intervalo de 10s entre estouros interrompa."),
+            new ProgramaAquecimento("Leite", "Leite", 5 * 60, 5, "L",
+                "Cuidado com aquecimento de líquidos: choque térmico pode causar fervura imediata."),
+            new ProgramaAquecimento("Carnes de boi", "Carne em pedaço ou fatias", 14 * 60, 4, "C",
+                "Interrompa na metade e vire o conteúdo para aquecimento uniforme."),
+            new ProgramaAquecimento("Frango", "Frango (qualquer corte)", 8 * 60, 7, "F",
+                "Interrompa na metade e vire o conteúdo para aquecimento uniforme."),
+            new ProgramaAquecimento("Feijão", "Feijão congelado", 8 * 60, 9, "#",
+                "Deixe o recipiente destampado; em plástico, cuidado ao retirar.")
+        };
     }
 }

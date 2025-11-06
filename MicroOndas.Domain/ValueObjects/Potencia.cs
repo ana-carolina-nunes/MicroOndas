@@ -1,4 +1,5 @@
 ﻿using System;
+
 namespace MicroOndas.Domain.ValueObjects
 {
     /// <summary>

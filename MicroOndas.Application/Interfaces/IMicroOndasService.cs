@@ -6,47 +6,36 @@ namespace MicroOndas.Application.Interfaces
 {
     public interface IMicroOndasService
     {
-        /// <summary>
-        /// Indica se o micro-ondas está em execução (contagem de tempo ativa).
-        /// </summary>
         bool EmExecucao { get; }
-
-        /// <summary>
-        /// Indica se o micro-ondas está pausado.
-        /// </summary>
         bool Pausado { get; }
 
         /// <summary>
-        /// Evento acionado a cada segundo de aquecimento.
-        /// A UI assina este evento e chama StateHasChanged().
+        /// Evento disparado a cada segundo (UI assina e chama StateHasChanged()).
         /// </summary>
         event Action? OnTick;
 
         /// <summary>
-        /// Evento acionado quando o tempo chega a zero sem cancelamento.
-        /// A UI usa para exibir "Aquecimento concluído".
+        /// Evento disparado quando o aquecimento termina normalmente.
         /// </summary>
         event Action? OnFinished;
 
         /// <summary>
-        /// Retorna a lista dos programas pré-definidos, que não podem ser alterados.
+        /// Retorna os programas pré-definidos (somente leitura).
         /// </summary>
         IReadOnlyList<ProgramaAquecimento> ObterProgramasPreDefinidos();
 
         /// <summary>
-        /// Inicia aquecimento no modo manual (tempo e potência digitados).
-        /// Limite de 120 segundos é validado aqui.
+        /// Inicia aquecimento no modo manual (valida tempo <= 120).
         /// </summary>
         void IniciarAquecimento(int tempoSegundos, int potencia);
 
         /// <summary>
-        /// Inicia aquecimento com um dos programas pré-definidos.
-        /// Sem limite de tempo.
+        /// Inicia aquecimento com um programa pré-definido (sem limite de tempo).
         /// </summary>
         void IniciarAquecimento(ProgramaAquecimento programa);
 
         /// <summary>
-        /// Pausa o aquecimento, podendo ser retomado.
+        /// Pausa o aquecimento.
         /// </summary>
         void Pausar();
 
@@ -56,8 +45,13 @@ namespace MicroOndas.Application.Interfaces
         void Cancelar();
 
         /// <summary>
-        /// Retorna o texto que deve aparecer no display na interface (ex: "00:20 .....").
+        /// Retorna o texto do display (ex: "00:30 ***").
         /// </summary>
         string ObterDisplay();
+
+        /// <summary>
+        /// Retorna a string visual (linhas de caracteres) do processo montado até agora.
+        /// </summary>
+        string ObterProcessoVisual();
     }
 }

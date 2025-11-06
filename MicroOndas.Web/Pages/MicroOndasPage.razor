@@ -5,139 +5,181 @@
 
 <h3>Micro-ondas Digital</h3>
 
-@if (MensagemErro is not null)
+@if (!string.IsNullOrEmpty(MensagemErro))
 {
-<p style="color:red">@MensagemErro</p>
+    <div style="color:darkred; margin-bottom:10px;">@MensagemErro</div>
 }
 
-<div>
-    <label>Tempo (segundos): </label>
-    <input type="number" @bind="TempoInput" @(ModoPrograma ? "disabled" : "" ) />
+<div style="max-width:720px;">
+    <div style="margin-bottom:8px;">
+        <label><strong>Programa de Aquecimento</strong></label>
+        <select @onchange="OnProgramaChange" style="width:100%; padding:6px;">
+            <option value="">-- selecione (ou deixe em branco para manual) --</option>
+            @foreach (var p in Programas)
+            {
+                <option value="@p.Nome" selected="@(ProgramaSelecionado?.Nome == p.Nome)">@p.Nome - @p.Alimento</option>
+            }
+        </select>
+    </div>
+
+    <div style="margin-bottom:8px;">
+        <label>Tempo (segundos)</label><br />
+        <input type="number" @bind="TempoInput" min="1" max="9999" disabled="@ModoPrograma" style="width:100%; padding:6px;" />
+    </div>
+
+    <div style="margin-bottom:8px;">
+        <label>Potência (1-10)</label><br />
+        <input type="number" @bind="PotenciaInput" min="1" max="10" disabled="@ModoPrograma" style="width:100%; padding:6px;" />
+    </div>
+
+    <div style="margin-bottom:16px;">
+        <label>Caractere de Aquecimento</label><br />
+        <input type="text" value="@CaractereExibicao" readonly style="width:100%; padding:6px;" />
+    </div>
+
+    @if (ProgramaSelecionado is not null)
+    {
+        <div style="background:#e8f7f7; padding:12px; margin-bottom:12px; border-radius:4px;">
+            <strong>Instruções do programa:</strong>
+            <div>@ProgramaSelecionado.Instrucoes</div>
+        </div>
+    }
+
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <button @onclick="Iniciar" style="flex:1; padding:10px; background:#007bff; color:white; border:none; cursor:pointer;">Iniciar</button>
+        <button @onclick="PausarOuCancelar" style="flex:1; padding:10px; background:#6c757d; color:white; border:none; cursor:pointer;">Pausar / Cancelar</button>
+        <button @onclick="IniciarRapido" style="flex:1; padding:10px; background:#28a745; color:white; border:none; cursor:pointer;">Início Rápido</button>
+    </div>
+
+    <div style="border:1px solid #ddd; padding:12px; border-radius:4px;">
+        <div><strong>Display:</strong> @MicroOndasService.ObterDisplay()</div>
+        <div style="margin-top:8px; white-space:pre-wrap;">@MicroOndasService.ObterProcessoVisual()</div>
+
+        @if (!string.IsNullOrEmpty(MensagemFinal))
+        {
+            <div style="margin-top:12px; font-weight:bold; color:green;">@MensagemFinal</div>
+        }
+    </div>
 </div>
-
-<div>
-    <label>Potência (1 a 10): </label>
-    <input type="number" @bind="PotenciaInput" @(ModoPrograma ? "disabled" : "" ) />
-</div>
-
-<div style="margin-top:10px;">
-    <button @onclick="Iniciar">Iniciar</button>
-    <button @onclick="PausarOuCancelar">Pausar / Cancelar</button>
-    <button @onclick="IniciarRapido">Início Rápido</button>
-</div>
-
-<hr />
-
-<h4>Programas Pré-definidos</h4>
-
-@foreach (var prog in Programas)
-{
-<button @onclick="() => SelecionarPrograma(prog)">
-    @prog.Nome (@prog.TempoFormatado, Potência @prog.Potencia)
-</button>
-}
-
-@if (ProgramaSelecionado is not null)
-{
-<p><b>Alimento:</b> @ProgramaSelecionado.Alimento</p>
-<p><b>Instruções:</b> @ProgramaSelecionado.Instrucoes</p>
-<p><b>Caractere de aquecimento:</b> "@ProgramaSelecionado.CaractereAquecimento"</p>
-}
-
-<hr />
-
-<h3>Status</h3>
-
-<p>@Display</p>
-
-@if (MensagemFinal is not null)
-{
-<p style="font-weight:bold; color:green">@MensagemFinal</p>
-}
 
 @code {
+    private int TempoInput { get; set; } = 0;
+    private int PotenciaInput { get; set; } = 10;
 
-    private int TempoInput;
-    private int PotenciaInput = 10;
-    private string? MensagemErro;
-    private string? MensagemFinal;
+    private IReadOnlyList<ProgramaAquecimento> Programas => MicroOndasService.ObterProgramasPreDefinidos();
+    private ProgramaAquecimento? ProgramaSelecionado;
+    private string MensagemErro = string.Empty;
+    private string MensagemFinal = string.Empty;
 
     private bool ModoPrograma => ProgramaSelecionado is not null;
-    private ProgramaAquecimento? ProgramaSelecionado;
-
-    private IReadOnlyList<ProgramaAquecimento>
-    Programas => MicroOndasService.ObterProgramasPreDefinidos();
-
-    private string Display => MicroOndasService.ObterDisplay();
+    private string CaractereExibicao => ProgramaSelecionado?.CaractereAquecimento ?? ".";
 
     protected override void OnInitialized()
     {
-    MicroOndasService.OnTick += () => InvokeAsync(StateHasChanged);
-    MicroOndasService.OnFinished += () =>
+        MicroOndasService.OnTick += () => InvokeAsync(StateHasChanged);
+        MicroOndasService.OnFinished += () =>
+        {
+            MensagemFinal = "Aquecimento concluído!";
+        // limpa seleção de programa (mantém inputs para novo uso)
+        ProgramaSelecionado = null;
+            InvokeAsync(StateHasChanged);
+        };
+    }
+
+    private void OnProgramaChange(ChangeEventArgs e)
     {
-    MensagemFinal = "Aquecimento concluído";
-    ProgramaSelecionado = null;
-    InvokeAsync(StateHasChanged);
-    };
+        MensagemErro = string.Empty;
+        MensagemFinal = string.Empty;
+
+        var nome = Convert.ToString(e.Value) ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(nome))
+        {
+            ProgramaSelecionado = null;
+            return;
+        }
+
+        ProgramaSelecionado = Programas.FirstOrDefault(p => p.Nome == nome);
+        if (ProgramaSelecionado != null)
+        {
+            // preenche campos, bloqueia edição
+            TempoInput = ProgramaSelecionado.TempoSegundos;
+            PotenciaInput = ProgramaSelecionado.Potencia;
+        }
     }
 
     private void Iniciar()
     {
-    MensagemErro = null;
-    MensagemFinal = null;
+        MensagemErro = string.Empty;
+        MensagemFinal = string.Empty;
 
-    try
-    {
-    if (ModoPrograma)
-    MicroOndasService.IniciarAquecimento(ProgramaSelecionado!);
-    else
-    MicroOndasService.IniciarAquecimento(TempoInput, PotenciaInput);
-    }
-    catch (Exception ex)
-    {
-    MensagemErro = ex.Message;
-    }
+        try
+        {
+            if (ProgramaSelecionado is not null)
+            {
+                MicroOndasService.IniciarAquecimento(ProgramaSelecionado);
+            }
+            else
+            {
+                if (TempoInput <= 0)
+                {
+                    MensagemErro = "Informe um tempo válido.";
+                    return;
+                }
+
+                MicroOndasService.IniciarAquecimento(TempoInput, PotenciaInput);
+            }
+        }
+        catch (Exception ex)
+        {
+            MensagemErro = ex.Message;
+        }
     }
 
     private void IniciarRapido()
     {
-    MensagemErro = null;
-    MensagemFinal = null;
-    TempoInput = 30;
-    PotenciaInput = 10;
+        MensagemErro = string.Empty;
+        MensagemFinal = string.Empty;
 
-    try
-    {
-    MicroOndasService.IniciarAquecimento(TempoInput, PotenciaInput);
-    }
-    catch (Exception ex)
-    {
-    MensagemErro = ex.Message;
-    }
+        TempoInput = 30;
+        PotenciaInput = 10;
+
+        try
+        {
+            MicroOndasService.IniciarAquecimento(TempoInput, PotenciaInput);
+        }
+        catch (Exception ex)
+        {
+            MensagemErro = ex.Message;
+        }
     }
 
     private void PausarOuCancelar()
     {
-    if (MicroOndasService.EmExecucao)
-    {
-    MicroOndasService.Pausar();
-    }
-    else if (ProgramaSelecionado is not null || TempoInput > 0)
-    {
-    MicroOndasService.Cancelar();
-    TempoInput = 0;
-    PotenciaInput = 10;
-    ProgramaSelecionado = null;
-    MensagemFinal = null;
-    }
-    }
+        // Se em execução -> pausar (se ainda em execução)
+        if (MicroOndasService.EmExecucao && !MicroOndasService.Pausado)
+        {
+            MicroOndasService.Pausar();
+            return;
+        }
 
-    private void SelecionarPrograma(ProgramaAquecimento programa)
-    {
-    ProgramaSelecionado = programa;
-    TempoInput = programa.TempoSegundos;
-    PotenciaInput = programa.Potencia;
-    MensagemErro = null;
-    MensagemFinal = null;
+        // Se pausado -> cancelar e resetar campos
+        if (MicroOndasService.EmExecucao && MicroOndasService.Pausado)
+        {
+            MicroOndasService.Cancelar();
+            TempoInput = 0;
+            PotenciaInput = 10;
+            ProgramaSelecionado = null;
+            MensagemFinal = string.Empty;
+            MensagemErro = string.Empty;
+            return;
+        }
+
+        // Caso não esteja em execução: apenas limpa
+        MicroOndasService.Cancelar();
+        TempoInput = 0;
+        PotenciaInput = 10;
+        ProgramaSelecionado = null;
+        MensagemFinal = string.Empty;
+        MensagemErro = string.Empty;
     }
-    }
+}

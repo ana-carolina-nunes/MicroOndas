@@ -3,8 +3,8 @@
 namespace MicroOndas.Domain.ValueObjects
 {
     /// <summary>
-    /// Value object que representa um tempo seguro (em segundos) para o micro-ondas.
-    /// Limites: 1..120 segundos.
+    /// Value object que representa um tempo (em segundos).
+    /// Limites: 1..120 (validação apenas para entrada manual).
     /// </summary>
     public class Tempo
     {
@@ -18,18 +18,14 @@ namespace MicroOndas.Domain.ValueObjects
             Segundos = segundos;
         }
 
-        /// <summary>
-        /// Formato para exibição: "s" se <60 ou "m:ss" se >=60.
-        /// Ex: 90 -> "1:30", 45 -> "45s"
-        /// </summary>
         public string ParaExibir()
         {
             if (Segundos < 60)
-                return $"{Segundos}s";
+                return $"{Segundos:D2}s";
 
             int minutos = Segundos / 60;
             int segundosRestantes = Segundos % 60;
-            return $"{minutos}:{segundosRestantes:D2}";
+            return $"{minutos:D2}:{segundosRestantes:D2}";
         }
     }
 }

@@ -4,9 +4,9 @@ using System;
 namespace MicroOndas.Domain.Entities
 {
     /// <summary>
-    /// Entidade MicroOndas: representa uma operação de aquecimento válida.
+    /// Entidade que representa uma operação válida de aquecimento.
     /// </summary>
-    public class MicroOndasDigital
+    public sealed class MicroOndasDigital
     {
         public Tempo Tempo { get; }
         public Potencia Potencia { get; }
@@ -17,14 +17,7 @@ namespace MicroOndas.Domain.Entities
             Potencia = potencia ?? throw new ArgumentNullException(nameof(potencia));
         }
 
-        /// <summary>
-        /// Tempo formatado para exibição (delegado a Tempo.ParaExibir).
-        /// </summary>
         public string TempoFormatado => Tempo.ParaExibir();
-
-        /// <summary>
-        /// Segundos restantes iniciais (útil para contagem).
-        /// </summary>
         public int SegundosIniciais => Tempo.Segundos;
     }
 }
