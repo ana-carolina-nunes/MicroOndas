@@ -1,0 +1,241 @@
+﻿@page "/microondas"
+@using MicroOndas.Application.Interfaces
+@inject IMicroOndasService MicroOndasService
+
+<h3>Micro-ondas Digital</h3>
+
+<div>
+    <div>
+        <label>Tempo (segundos):</label>
+        <input type="number" @bind="TempoInput" min="0" max="120" />
+    </div>
+    <div style="margin-top:8px;">
+        <label>Potência (1-10):</label>
+        <input type="number" @bind="PotenciaInput" min="1" max="10" />
+    </div>
+
+    <div style="margin-top:12px;">
+        <button @onclick="OnStartClicked">Iniciar</button>
+        <button style="margin-left:8px;" @onclick="OnPauseCancelClicked">Pausar / Cancelar</button>
+    </div>
+
+    <div style="margin-top:12px;">
+        <strong>Tempo restante:</strong> @FormatTime(TempoRestante)
+    </div>
+
+    <div style="margin-top:8px;">
+        <strong>Processo:</strong>
+        <div>@ProcessoVisual</div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(FinalMessage))
+    {
+    <div style="margin-top:8px; font-weight:bold;">@FinalMessage</div>
+    }
+</div>
+
+@code {
+    // Dados de entrada
+    private int TempoInput { get; set; } = 0; // 0 indica não informado para iniciar rápido
+    private int PotenciaInput { get; set; } = 0; // 0 => não informado
+
+    // Estado de execução
+    private int TempoRestante { get; set; } = 0; // em segundos
+    private bool EmAquecimento { get; set; } = false;
+    private bool Pausado { get; set; } = false;
+
+    // Visualização do processo
+    private System.Text.StringBuilder _processBuilder = new System.Text.StringBuilder();
+    private string ProcessoVisual => _processBuilder.ToString();
+    private string FinalMessage { get; set; } = string.Empty;
+
+    // Controle do loop assíncrono
+    private System.Threading.CancellationTokenSource _cts;
+    private Task _runningTask;
+
+    // =========================
+    // Eventos dos botões
+    // =========================
+
+    private async Task OnStartClicked()
+    {
+        FinalMessage = string.Empty;
+
+        // Caso esteja em pausa -> retomar
+        if (EmAquecimento && Pausado)
+        {
+            Pausado = false;
+            return; // loop já está rodando e respeitará Pausado
+        }
+
+        // Se já estiver aquecendo e não estiver pausado -> acrescenta 30s
+        if (EmAquecimento && !Pausado)
+        {
+            TempoRestante += 30; // requisito 5
+            return;
+        }
+
+        // Início rápido: se nenhum valor informado, aplicar padrões
+        int tempo = TempoInput;
+        int potencia = PotenciaInput;
+        if (tempo == 0 && potencia == 0)
+        {
+            tempo = 30;
+            potencia = 10;
+        }
+
+        // Caso potencia não informada (0) assume 10
+        if (potencia == 0) potencia = 10;
+
+        // Chama camada Application para validação e criação da entidade
+        try
+        {
+            var micro = MicroOndasService.Iniciar(tempo, potencia);
+
+            TempoRestante = micro.SegundosIniciais;
+            // Inicializa visual
+            _processBuilder.Clear();
+            FinalMessage = string.Empty;
+
+            // Marcar estado e iniciar loop
+            EmAquecimento = true;
+            Pausado = false;
+
+            // Inicializar CancellationTokenSource
+            _cts?.Cancel();
+            _cts = new System.Threading.CancellationTokenSource();
+            var token = _cts.Token;
+
+            // Start loop (opção B - loop assíncrono)
+            _runningTask = Task.Run(async () => await RunCountdownLoop(token, micro.Potencia.Valor), token);
+        }
+        catch (Exception ex)
+        {
+            // Exibir mensagem de erro direto na FinalMessage
+            FinalMessage = ex.Message;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnPauseCancelClicked()
+    {
+        // Se está aquecendo e não pausado -> pausar
+        if (EmAquecimento && !Pausado)
+        {
+            Pausado = true;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        // Se está pausado -> cancelar e limpar tudo
+        if (EmAquecimento && Pausado)
+        {
+            CancelAndClear();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        // Se não está em aquecimento (antes de iniciar) -> limpar campos
+        CancelAndClear();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // =========================
+    // Loop assíncrono principal (opção B)
+    // =========================
+
+    private async Task RunCountdownLoop(System.Threading.CancellationToken token, int potencia)
+    {
+        try
+        {
+            while (TempoRestante > 0)
+            {
+                if (token.IsCancellationRequested) break;
+
+                if (Pausado)
+                {
+                    // Pequeno delay para evitar busy-wait
+                    await Task.Delay(200, token).ContinueWith(t => { });
+                    continue;
+                }
+
+                // A cada segundo: adicionar o bloco de pontos conforme potência
+                _processBuilder.Append(new string('.', potencia));
+                _processBuilder.Append(' ');
+
+                // Atualiza UI
+                await InvokeAsync(StateHasChanged);
+
+                // Aguarda 1 segundo
+                try
+                {
+                    await Task.Delay(1000, token);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+
+                TempoRestante--;
+            }
+
+            // Finalização normal
+            if (TempoRestante <= 0 && !token.IsCancellationRequested)
+            {
+                // Ao final, exibe em linha abaixo a frase "Aquecimento concluído"
+                FinalMessage = "Aquecimento concluído";
+                EmAquecimento = false;
+                Pausado = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception)
+        {
+            // Se ocorrer erro, garante limpeza
+            CancelAndClear();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // =========================
+    // Helpers
+    // =========================
+
+    private void CancelAndClear()
+    {
+        try
+        {
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
+        }
+        catch { }
+
+        EmAquecimento = false;
+        Pausado = false;
+        TempoRestante = 0;
+        TempoInput = 0;
+        PotenciaInput = 0;
+        _processBuilder.Clear();
+        FinalMessage = string.Empty;
+    }
+
+    private static string FormatTime(int totalSeconds)
+    {
+        int mm = totalSeconds / 60;
+        int ss = totalSeconds % 60;
+        return $"{mm:D2}:{ss:D2}";
+    }
+
+    // Dispose cancellation source quando componente for descartado
+    public void Dispose()
+    {
+        try
+        {
+            _cts?.Cancel();
+            _cts?.Dispose();
+        }
+        catch { }
+    }
+}
