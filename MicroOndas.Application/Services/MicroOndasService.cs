@@ -154,39 +154,64 @@ namespace MicroOndas.Application.Services
 
         public void IniciarAquecimento(int tempoSegundos, int potencia)
         {
+            // Se já estava rodando e apenas pausado → retomar
+            if (EmExecucao && Pausado)
+            {
+                Pausado = false;
+                //StartLoop(); // retoma com _tempoRestante intacto
+                return;
+            }
+
+            // Se já está rodando e NÃO está pausado → só adiciona +30s (regra do projeto)
             if (EmExecucao && !Pausado)
             {
                 _tempoRestante = Math.Min(_tempoRestante + 30, 120);
                 return;
             }
 
+            // Novo aquecimento > aplica lógica padrão de inicialização
             potencia = potencia == 0 ? 10 : potencia;
             tempoSegundos = tempoSegundos == 0 ? 30 : tempoSegundos;
 
-            if (tempoSegundos < 1 || tempoSegundos > 120) 
+            if (tempoSegundos < 1 || tempoSegundos > 120)
                 throw new ArgumentException("Tempo deve estar entre 1 e 120 segundos para entrada manual.");
-            if (potencia < 1 || potencia > 10) 
+            if (potencia < 1 || potencia > 10)
                 throw new ArgumentException("Potência deve estar entre 1 e 10.");
 
             _tempoRestante = tempoSegundos;
             _potenciaAtual = potencia;
             _caractereAquecimento = ".";
             _processBuilder.Clear();
+            Pausado = false;
 
             StartLoop();
         }
 
+
         public void IniciarAquecimento(ProgramaAquecimento programa)
         {
-            if (EmExecucao) return;
+            // Se já estava rodando e pausado > retomar sem resetar nada
+            if (EmExecucao && Pausado)
+            {
+                Pausado = false;
+                //StartLoop();
+                return;
+            }
 
+            // Se já está executando e NÃO está pausado → ignorar (não substitui programa)
+            if (EmExecucao)
+                return;
+
+            // Novo programa → carrega normalmente
             _tempoRestante = programa.TempoSegundos;
             _potenciaAtual = programa.Potencia;
             _caractereAquecimento = programa.CaractereAquecimento;
             _processBuilder.Clear();
+            Pausado = false;
 
             StartLoop();
         }
+
 
         public void Pausar()
         {

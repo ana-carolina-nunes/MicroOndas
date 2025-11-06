@@ -1,4 +1,5 @@
 ﻿@page "/microondas"
+@using System.Text.RegularExpressions
 @using MicroOndas.Application.Interfaces
 @using MicroOndas.Application.Models
 @inject IMicroOndasService MicroOndasService
@@ -13,8 +14,9 @@
 <div style="max-width:900px;">
     <div style="margin-bottom:8px;">
         <label><strong>Programa de Aquecimento</strong></label>
-        <select @onchange="OnProgramaChange" style="width:100%; padding:6px;">
+        <select @bind="ProgramaSelecionadoNome" class="form-control" style="width:100%; padding:6px;">
             <option value="">-- selecione (ou deixe em branco para manual) --</option>
+
             @foreach (var p in Programas)
             {
                 <option value="@p.Nome" style="@(p.IsCustom ? "font-style: italic" : "font-style: normal")">
@@ -26,8 +28,8 @@
 
     <div style="display:flex; gap:12px; margin-bottom:12px;">
         <div style="flex:1;">
-            <label>Tempo (segundos)</label><br />
-            <input type="number" @bind="TempoInput" min="1" max="99999" disabled="@ModoPrograma" style="width:100%; padding:6px;" />
+            <label>Tempo</label><br />
+            <input type="text"  @bind="TempoInputDisplay" @bind:event="oninput" @onblur="FormatarTempoInput"  @onfocus="DesformatarTempoInput" disabled="@ModoPrograma" style="width:100%; padding:6px;" />
         </div>
         <div style="width:160px;">
             <label>Potência (1-10)</label><br />
@@ -42,7 +44,6 @@
     <div style="margin-bottom:12px;">
         <button @onclick="Iniciar" style="padding:10px; background:#007bff; color:white; border:none; cursor:pointer;">Iniciar</button>
         <button @onclick="PausarOuCancelar" style="padding:10px; margin-left:8px; background:#6c757d; color:white; border:none; cursor:pointer;">Pausar / Cancelar</button>
-        <button @onclick="IniciarRapido" style="padding:10px; margin-left:8px; background:#28a745; color:white; border:none; cursor:pointer;">Início Rápido</button>
     </div>
 
     <div style="margin-top:18px; border:1px solid #ddd; padding:12px; border-radius:4px;">
@@ -111,6 +112,8 @@
     private string MensagemErro = "";
     private string MensagemFinal = "";
 
+    private string? _tempoTexto;
+
     private bool ModoPrograma => ProgramaSelecionado is not null;
     private string CaractereExibicao => ProgramaSelecionado?.CaractereAquecimento ?? ".";
 
@@ -141,6 +144,7 @@
         if (ProgramaSelecionado != null)
         {
             TempoInput = ProgramaSelecionado.TempoSegundos;
+            _tempoTexto = TempoInput.ToString();
             PotenciaInput = ProgramaSelecionado.Potencia;
             CaractereInput = ProgramaSelecionado.CaractereAquecimento;
         }
@@ -168,24 +172,35 @@
         }
     }
 
-    private void IniciarRapido()
-    {
-        MensagemErro = ""; MensagemFinal = "";
-        TempoInput = 30; PotenciaInput = 10;
-        try { MicroOndasService.IniciarAquecimento(TempoInput, PotenciaInput); }
-        catch (Exception ex) { MensagemErro = ex.Message; }
-    }
-
     private void PausarOuCancelar()
     {
         if (MicroOndasService.EmExecucao && !MicroOndasService.Pausado) { MicroOndasService.Pausar(); return; }
+
+        MicroOndasService.Cancelar();
+        ProgramaSelecionado = null;
+        ProgramaSelecionadoNome = null;
+        _tempoTexto = "30";
+        TempoInput = 30;
+        PotenciaInput = 10;
+        MensagemFinal = "";
+        MensagemErro = "";
+        StateHasChanged();
+
         if (MicroOndasService.EmExecucao && MicroOndasService.Pausado)
         {
             MicroOndasService.Cancelar();
-            TempoInput = 0; PotenciaInput = 10; ProgramaSelecionado = null; MensagemFinal = ""; MensagemErro = ""; return;
+
+            ProgramaSelecionado = null;
+            ProgramaSelecionadoNome = null;
+            _tempoTexto = "30";
+            TempoInput = 30;
+            PotenciaInput = 10;
+            MensagemFinal = "";
+            MensagemErro = "";
+            StateHasChanged();
+            return;
         }
-        MicroOndasService.Cancelar();
-        TempoInput = 0; PotenciaInput = 10; ProgramaSelecionado = null; MensagemFinal = ""; MensagemErro = "";
+
     }
 
     private void CriarPrograma()
@@ -220,5 +235,105 @@
         {
             MensagemErro = ex.Message;
         }
+    }
+    public string TempoInputDisplay
+    {
+        get => _tempoTexto ?? TempoInput.ToString();
+        set
+        {
+            // filtro (remove tudo que não for número ou :)
+            var filtered = Regex.Replace(value ?? "", @"[^0-9:]", "");
+
+            _tempoTexto = filtered;
+
+            if (filtered.Contains(":"))
+            {
+                var parts = filtered.Split(':');
+                if (parts.Length == 2 &&
+                    int.TryParse(parts[0], out int mm) &&
+                    int.TryParse(parts[1], out int ss))
+                {
+                    TempoInput = (mm * 60) + ss;
+                }
+            }
+            else if (int.TryParse(filtered, out int segundos))
+            {
+                TempoInput = segundos;
+            }
+            else
+            {
+                TempoInput = 0;
+            }
+        }
+    }
+
+
+    private void FormatarTempoInput()
+    {
+        var filtered = Regex.Replace(TempoInputDisplay, @"[^0-9:]", "");
+        TempoInput = Convert.ToInt32(TempoInputDisplay);
+
+        if (TempoInput >= 60 && TempoInput < 6000)
+        {
+            int mm = TempoInput / 60; int ss = TempoInput % 60;
+            _tempoTexto = $"{mm:D2}:{ss:D2}";
+        }
+        else
+        {
+            _tempoTexto = TempoInput.ToString();
+        }
+    }
+
+
+    private void DesformatarTempoInput()
+    {
+        _tempoTexto = TempoInput.ToString();
+    }
+
+
+    private string? ProgramaSelecionadoNome
+    {
+        get => ProgramaSelecionado?.Nome;
+        set
+        {
+            ProgramaSelecionado = Programas.FirstOrDefault(p => p.Nome == value);
+            AtualizarCamposDoPrograma();
+        }
+    }
+
+    private void AtualizarCamposDoPrograma()
+    {
+        if (ProgramaSelecionado == null)
+        {
+            // Modo manual / sem programa selecionado
+            TempoInput = 30;
+            PotenciaInput = 10;
+            CaractereInput = ".";
+            FormatarTempoAposSelecao();
+            return;
+        }
+
+        // Preenche automaticamente com valores do programa escolhido
+        TempoInput = ProgramaSelecionado.TempoSegundos;
+        _tempoTexto = TempoInput.ToString();
+        PotenciaInput = ProgramaSelecionado.Potencia;
+        CaractereInput = ProgramaSelecionado.CaractereAquecimento;
+        FormatarTempoAposSelecao();
+    }
+
+    private void FormatarTempoAposSelecao()
+    {
+        if (TempoInput >= 60)
+        {
+            int mm = TempoInput / 60;
+            int ss = TempoInput % 60;
+            _tempoTexto = $"{mm:D2}:{ss:D2}";
+        }
+        else
+        {
+            _tempoTexto = TempoInput.ToString();
+        }
+
+        InvokeAsync(StateHasChanged);
     }
 }
