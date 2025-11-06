@@ -25,6 +25,16 @@ namespace MicroOndas.Application.Interfaces
         IReadOnlyList<ProgramaAquecimento> ObterProgramasPreDefinidos();
 
         /// <summary>
+        /// Retorna todos os programas (pré-definidos + customizados).
+        /// </summary>
+        IReadOnlyList<ProgramaAquecimento> ObterTodosProgramas();
+
+        /// <summary>
+        /// Tenta adicionar um programa customizado. Lança exceção em caso de validação.
+        /// </summary>
+        void AdicionarProgramaCustomizado(ProgramaAquecimento programa);
+
+        /// <summary>
         /// Inicia aquecimento no modo manual (valida tempo <= 120).
         /// </summary>
         void IniciarAquecimento(int tempoSegundos, int potencia);

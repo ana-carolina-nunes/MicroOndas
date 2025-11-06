@@ -4,7 +4,10 @@ using MicroOndas.Domain.Entities;
 using MicroOndas.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,10 +15,13 @@ namespace MicroOndas.Application.Services
 {
     public class MicroOndasService : IMicroOndasService
     {
-        private readonly List<ProgramaAquecimento> _programas;
+        private readonly List<ProgramaAquecimento> _programasPreDefinidos;
+        private readonly List<ProgramaAquecimento> _customPrograms = new();
+        private readonly string _storageFilePath;
+
+        // execução
         private CancellationTokenSource? _cts;
         private Task? _runningTask;
-
         private int _tempoRestante;
         private int _potenciaAtual;
         private string _caractereAquecimento = ".";
@@ -29,31 +35,134 @@ namespace MicroOndas.Application.Services
 
         public MicroOndasService()
         {
-            _programas = InicializarProgramas();
+            _programasPreDefinidos = InicializarProgramas();
+
+            // definir local de persistência simples
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MicroOndas");
+            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+            _storageFilePath = Path.Combine(folder, "programas_custom.json");
+
+            LoadCustomPrograms();
         }
 
-        public IReadOnlyList<ProgramaAquecimento> ObterProgramasPreDefinidos() => _programas;
+        public IReadOnlyList<ProgramaAquecimento> ObterProgramasPreDefinidos() => _programasPreDefinidos;
 
+        public IReadOnlyList<ProgramaAquecimento> ObterTodosProgramas()
+        {
+            // pré-definidos primeiro, depois os custom (para exibição)
+            return _programasPreDefinidos.Concat(_customPrograms).ToList();
+        }
+
+        public void AdicionarProgramaCustomizado(ProgramaAquecimento programa)
+        {
+            // validações obrigatórias
+            if (programa is null) throw new ArgumentNullException(nameof(programa));
+            if (string.IsNullOrWhiteSpace(programa.Nome)) throw new ArgumentException("Nome é obrigatório.");
+            if (string.IsNullOrWhiteSpace(programa.Alimento)) throw new ArgumentException("Alimento é obrigatório.");
+            if (programa.TempoSegundos <= 0) throw new ArgumentException("Tempo deve ser maior que 0.");
+            if (programa.Potencia < 1 || programa.Potencia > 10) throw new ArgumentException("Potência deve estar entre 1 e 10.");
+            if (string.IsNullOrWhiteSpace(programa.CaractereAquecimento)) throw new ArgumentException("Caractere de aquecimento é obrigatório.");
+            if (programa.CaractereAquecimento == ".") throw new ArgumentException("Caractere '.' é reservado e não pode ser usado.");
+            if (programa.CaractereAquecimento.Length != 1) throw new ArgumentException("Caractere de aquecimento deve ser exatamente 1 caractere.");
+
+            // unicidade do caractere entre TODOS os programas
+            var todos = ObterTodosProgramas();
+            if (todos.Any(p => p.CaractereAquecimento == programa.CaractereAquecimento))
+                throw new ArgumentException($"Caractere '{programa.CaractereAquecimento}' já está em uso por outro programa.");
+
+            // nome também pode ser verificado (opcional)
+            if (todos.Any(p => string.Equals(p.Nome, programa.Nome, StringComparison.OrdinalIgnoreCase)))
+                throw new ArgumentException($"Já existe um programa com o nome '{programa.Nome}'.");
+
+            // cria cópia com IsCustom = true
+            var custom = new ProgramaAquecimento(programa.Nome, programa.Alimento, programa.TempoSegundos, programa.Potencia, programa.CaractereAquecimento, programa.Instrucoes, true);
+            _customPrograms.Add(custom);
+            SaveCustomPrograms();
+        }
+
+        private void SaveCustomPrograms()
+        {
+            try
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                var dto = _customPrograms.Select(p => new
+                {
+                    p.Nome,
+                    p.Alimento,
+                    p.TempoSegundos,
+                    p.Potencia,
+                    p.CaractereAquecimento,
+                    p.Instrucoes
+                }).ToList();
+
+                var json = JsonSerializer.Serialize(dto, options);
+                File.WriteAllText(_storageFilePath, json, Encoding.UTF8);
+            }
+            catch
+            {
+                // não lançar exceção para não quebrar a UI; poderia logar em produção
+            }
+        }
+
+        private void LoadCustomPrograms()
+        {
+            try
+            {
+                if (!File.Exists(_storageFilePath)) return;
+
+                var json = File.ReadAllText(_storageFilePath, Encoding.UTF8);
+                var doc = JsonSerializer.Deserialize<List<CustomDto>>(json);
+                if (doc is null) return;
+
+                _customPrograms.Clear();
+                foreach (var d in doc)
+                {
+                    // validar caractere também ao carregar (se inválido, pular)
+                    if (string.IsNullOrWhiteSpace(d.CaractereAquecimento) || d.CaractereAquecimento.Length != 1) continue;
+                    // não permitir '.' ao carregar
+                    if (d.CaractereAquecimento == ".") continue;
+
+                    // garantir unicidade em relação a pré-definidos e já carregados
+                    var todos = _programasPreDefinidos.Concat(_customPrograms);
+                    if (todos.Any(p => p.CaractereAquecimento == d.CaractereAquecimento)) continue;
+
+                    var p = new ProgramaAquecimento(d.Nome, d.Alimento, d.TempoSegundos, d.Potencia, d.CaractereAquecimento, d.Instrucoes, true);
+                    _customPrograms.Add(p);
+                }
+            }
+            catch
+            {
+                // ignorar problemas de leitura; em produção logar
+            }
+        }
+
+        private class CustomDto
+        {
+            public string Nome { get; set; } = "";
+            public string Alimento { get; set; } = "";
+            public int TempoSegundos { get; set; }
+            public int Potencia { get; set; }
+            public string CaractereAquecimento { get; set; } = "";
+            public string Instrucoes { get; set; } = "";
+        }
+
+        // ----------------------------
+        // Execução (igual ao que tínhamos antes)
+        // ----------------------------
         public void IniciarAquecimento(int tempoSegundos, int potencia)
         {
-            // Se já em execução e não pausado -> acrescenta 30s (requisito 5).
             if (EmExecucao && !Pausado)
             {
-                // manual: limite de 120s para entrada manual (não deixar ultrapassar)
                 _tempoRestante = Math.Min(_tempoRestante + 30, 120);
                 return;
             }
 
-            // validações do requisito Nível 1
-            if (tempoSegundos < 1 || tempoSegundos > 120)
-                throw new ArgumentException("Tempo deve estar entre 1 e 120 segundos para entrada manual.", nameof(tempoSegundos));
-
-            if (potencia < 1 || potencia > 10)
-                throw new ArgumentException("Potência deve estar entre 1 e 10.", nameof(potencia));
+            if (tempoSegundos < 1 || tempoSegundos > 120) throw new ArgumentException("Tempo deve estar entre 1 e 120 segundos para entrada manual.");
+            if (potencia < 1 || potencia > 10) throw new ArgumentException("Potência deve estar entre 1 e 10.");
 
             _tempoRestante = tempoSegundos;
             _potenciaAtual = potencia;
-            _caractereAquecimento = "."; // no manual usamos '.' por requisito
+            _caractereAquecimento = ".";
             _processBuilder.Clear();
 
             StartLoop();
@@ -63,10 +172,9 @@ namespace MicroOndas.Application.Services
         {
             if (EmExecucao) return;
 
-            // Programas pré-definidos NÃO obedecem limite de 120s.
             _tempoRestante = programa.TempoSegundos;
             _potenciaAtual = programa.Potencia;
-            _caractereAquecimento = string.IsNullOrEmpty(programa.CaractereAquecimento) ? "#" : programa.CaractereAquecimento;
+            _caractereAquecimento = programa.CaractereAquecimento;
             _processBuilder.Clear();
 
             StartLoop();
@@ -86,23 +194,16 @@ namespace MicroOndas.Application.Services
 
         public string ObterDisplay()
         {
-            if (!EmExecucao)
-                return "Micro-ondas pronto.";
-
+            if (!EmExecucao) return "Micro-ondas pronto.";
             int mm = _tempoRestante / 60;
             int ss = _tempoRestante % 60;
             string tempo = $"{mm:D2}:{ss:D2}";
-
-            // Mostra também uma pequena representação de potência
             string barras = new string(_caractereAquecimento[0], Math.Max(1, _potenciaAtual));
             return $"{tempo} {barras}";
         }
 
         public string ObterProcessoVisual() => _processBuilder.ToString();
 
-        // ----------------------------
-        // Loop assíncrono
-        // ----------------------------
         private void StartLoop()
         {
             _cts?.Cancel();
@@ -120,9 +221,6 @@ namespace MicroOndas.Application.Services
                     {
                         if (!Pausado)
                         {
-                            // A cada segundo adicionamos a sequência definida:
-                            // se caractereAquecimento for ".", adiciona '.' repetido conforme potência
-                            // se for outro caractere (programa), usa esse char.
                             string bloco = new string(_caractereAquecimento[0], Math.Max(1, _potenciaAtual));
                             _processBuilder.Append(bloco);
                             _processBuilder.Append(' ');
@@ -140,7 +238,6 @@ namespace MicroOndas.Application.Services
 
                     if (!token.IsCancellationRequested && _tempoRestante <= 0)
                     {
-                        // finaliza normalmente
                         EmExecucao = false;
                         Pausado = false;
                         OnFinished?.Invoke();
@@ -150,11 +247,7 @@ namespace MicroOndas.Application.Services
                 catch (OperationCanceledException) { }
                 finally
                 {
-                    // se cancelado, limpamos o cancel token mas não disparamos OnFinished
-                    if (token.IsCancellationRequested)
-                    {
-                        ResetState();
-                    }
+                    if (token.IsCancellationRequested) ResetState();
                 }
             }, token);
         }

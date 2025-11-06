@@ -1,8 +1,5 @@
 ﻿namespace MicroOndas.Application.Models
 {
-    /// <summary>
-    /// Representa um programa pré-definido de aquecimento.
-    /// </summary>
     public sealed class ProgramaAquecimento
     {
         public string Nome { get; }
@@ -11,8 +8,9 @@
         public int Potencia { get; } // 1..10
         public string CaractereAquecimento { get; } // não pode ser "."
         public string Instrucoes { get; }
+        public bool IsCustom { get; } // true se criado pelo usuário
 
-        public ProgramaAquecimento(string nome, string alimento, int tempoSegundos, int potencia, string caractere, string instrucoes)
+        public ProgramaAquecimento(string nome, string alimento, int tempoSegundos, int potencia, string caractere, string instrucoes, bool isCustom = false)
         {
             Nome = nome;
             Alimento = alimento;
@@ -20,6 +18,7 @@
             Potencia = potencia;
             CaractereAquecimento = caractere;
             Instrucoes = instrucoes;
+            IsCustom = isCustom;
         }
 
         public string TempoFormatado
