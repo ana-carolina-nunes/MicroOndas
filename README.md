@@ -7,31 +7,37 @@ MICRO-ONDAS DIGITAL - Pojeto C# em .NET 5.0.
 Nível 1
 
 1. Interface onde é possível informar um tempo e a potência. 
+	
 	a. Informar os números > input por teclado.
 
 	b. Interface em Razor Pages
 
-3. Método para iniciar o aquecimento, sendo parametrizável o tempo e a potência.   
+2. Método para iniciar o aquecimento, sendo parametrizável o tempo e a potência.   
+	
 	a. O tempo máximo é 2 minutos e o mínimo é 1 segundo.
 
 	b. A potência varia de 1 a 10 assumindo 10 como padrão, caso não informada.
 
 	c. Caso o usuário informe um tempo maior que 60 segundos e menor que 100 segundos o programa converte o tempo em minutos
 
-4. Validações de operação:
+3. Validações de operação:
+	
 	a. Caso o tempo seja informado fora dos limites definidos (menor que 1 ou maior que 2 minutos) é exibida uma mensagem solicitando um tempo valido.
 
 	b. Caso a potência for informada com um valor menor que 0 ou maior que 10 o sistema exibe mensagem.
 
 	c. Em caso de potência não informada, será inserido em tela o valor 10 como padrão.
 
-5. Possibilita o "início rápido":
-        a. Se define por apertar o botão de INICIAR sem informar tempo ou potência. Neste caso o programa iniciará o aquecimento com a potência 10 e o tempo será 30 segundos.
+4. Possibilita o "início rápido":
 
-6. Acréscimo de tempo durante o aquecimento: 
+    a. Se define por apertar o botão de INICIAR sem informar tempo ou potência. Neste caso o programa iniciará o aquecimento com a potência 10 e o tempo será 30 segundos.
+
+5. Acréscimo de tempo durante o aquecimento: 
+	
 	a. Caso o usuário pressione o botão de INICIAR aquecimento com um aquecimento já em execução o programa acrescenta 30 segundos no tempo que estiver faltando.
 
-7. String informativa do processo de aquecimento:   
+6. String informativa do processo de aquecimento:   
+	
 	a. Durante o processo de aquecimento uma string de label é exibida e atualizada em tela, para dar a noção de processamento.
 
 	b. A string tem o seguinte formato: o caractere usado será o "." e a quantidade de caracteres por segundo vai variar de acordo com a potência definida. 
@@ -40,7 +46,7 @@ Nível 1
 
 	c. Ao final do processo no final dessa string é concatenado a frase "Aquecimento concluído".
 
-8. Pausa / cancelamento de aquecimento:
+7. Pausa / cancelamento de aquecimento:
 
 	a. O programa deverá ter um botão único para pausa / cancelamento. 
            Se o aquecimento estiver em andamento e este botão for acionado o programa pausará o aquecimento. 
@@ -113,6 +119,7 @@ Instruções: Deixe o recipiente destampado e em casos de plástico, cuidado ao 
 Nível 3
 
 1. Cadastro de programas de aquecimento customizados:
+	
 	a. O programa permite o cadastro de programas de aquecimento customizados.
            As informações de nome do programa, alimento, potência, caractere de aquecimento e tempo deverão obrigatoriamente ser preenchidos.
 
