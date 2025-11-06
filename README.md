@@ -6,27 +6,32 @@ MICRO-ONDAS DIGITAL - Pojeto C# em .NET 5.0.
 
 Nível 1
 
-1. Interface onde é possível informar um tempo e a potência.
+1. Interface onde é possível informar um tempo e a potência. 
 	a. Informar os números > input por teclado.
+
 	b. Interface em Razor Pages
 
-2. Método para iniciar o aquecimento, sendo parametrizável o tempo e a potência.
+3. Método para iniciar o aquecimento, sendo parametrizável o tempo e a potência.   
 	a. O tempo máximo é 2 minutos e o mínimo é 1 segundo.
+
 	b. A potência varia de 1 a 10 assumindo 10 como padrão, caso não informada.
+
 	c. Caso o usuário informe um tempo maior que 60 segundos e menor que 100 segundos o programa converte o tempo em minutos
 
-3. Validações de operação:
+4. Validações de operação:
 	a. Caso o tempo seja informado fora dos limites definidos (menor que 1 ou maior que 2 minutos) é exibida uma mensagem solicitando um tempo valido.
-	b. Caso a potência for informada com um valor menor que 0 ou maior que 10 o sistema exibe mensagem.	 
+
+	b. Caso a potência for informada com um valor menor que 0 ou maior que 10 o sistema exibe mensagem.
+
 	c. Em caso de potência não informada, será inserido em tela o valor 10 como padrão.
 
-4. Possibilita o "início rápido":
+5. Possibilita o "início rápido":
         a. Se define por apertar o botão de INICIAR sem informar tempo ou potência. Neste caso o programa iniciará o aquecimento com a potência 10 e o tempo será 30 segundos.
 
-5. Acréscimo de tempo durante o aquecimento: 
+6. Acréscimo de tempo durante o aquecimento: 
 	a. Caso o usuário pressione o botão de INICIAR aquecimento com um aquecimento já em execução o programa acrescenta 30 segundos no tempo que estiver faltando.
 
-6. String informativa do processo de aquecimento:   
+7. String informativa do processo de aquecimento:   
 	a. Durante o processo de aquecimento uma string de label é exibida e atualizada em tela, para dar a noção de processamento.
 
 	b. A string tem o seguinte formato: o caractere usado será o "." e a quantidade de caracteres por segundo vai variar de acordo com a potência definida. 
