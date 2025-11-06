@@ -26,16 +26,16 @@ Nível 1
 5. Acréscimo de tempo durante o aquecimento: 
 	a. Caso o usuário pressione o botão de INICIAR aquecimento com um aquecimento já em execução o programa acrescenta 30 segundos no tempo que estiver faltando.
 
-6. String informativa do processo de aquecimento: 
+6. String informativa do processo de aquecimento:   
 	a. Durante o processo de aquecimento uma string de label é exibida e atualizada em tela, para dar a noção de processamento.
 
 	b. A string tem o seguinte formato: o caractere usado será o "." e a quantidade de caracteres por segundo vai variar de acordo com a potência definida. 
            Exemplo: tempo de 10 segundos com a potência 1 o resultado final será:
 	   ". . . . . . . . . .". tempo 5 com potência 3: "... ... ... ... ...". Assim por diante.
 
-	b. Ao final do processo no final dessa string é concatenado a frase "Aquecimento concluído".
+	c. Ao final do processo no final dessa string é concatenado a frase "Aquecimento concluído".
 
-7. Pausa / cancelamento de aquecimento:
+8. Pausa / cancelamento de aquecimento:
 
 	a. O programa deverá ter um botão único para pausa / cancelamento. 
            Se o aquecimento estiver em andamento e este botão for acionado o programa pausará o aquecimento. 
