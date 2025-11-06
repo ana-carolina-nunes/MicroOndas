@@ -17,9 +17,8 @@
             <option value="">-- selecione (ou deixe em branco para manual) --</option>
             @foreach (var p in Programas)
             {
-                <option value="@p.Nome" selected="@(ProgramaSelecionado?.Nome == p.Nome)">
-                    @p.Nome - @p.Alimento @if (p.IsCustom)
-                    {<em>(custom)</em>}
+                <option value="@p.Nome" style="@(p.IsCustom ? "font-style: italic" : "font-style: normal")">
+                    @p.Nome - @p.Alimento
                 </option>
             }
         </select>
@@ -36,7 +35,7 @@
         </div>
         <div style="width:120px;">
             <label>Caractere</label><br />
-            <input type="text" @bind="CaractereInput" maxlength="1" disabled="@ModoPrograma" style="width:100%; padding:6px;" />
+            <input type="text" @bind="CaractereInput" maxlength="1" disabled style="width:100%; padding:6px;" />
         </div>
     </div>
 
@@ -154,13 +153,12 @@
 
         try
         {
-            if (ProgramaSelecionado is not null)
+            if (ProgramaSelecionado != null)
             {
                 MicroOndasService.IniciarAquecimento(ProgramaSelecionado);
             }
             else
             {
-                if (TempoInput <= 0) { MensagemErro = "Informe um tempo válido."; return; }
                 MicroOndasService.IniciarAquecimento(TempoInput, PotenciaInput);
             }
         }

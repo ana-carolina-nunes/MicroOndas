@@ -37,10 +37,16 @@ namespace MicroOndas.Application.Services
         {
             _programasPreDefinidos = InicializarProgramas();
 
-            // definir local de persistência simples
-            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MicroOndas");
-            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-            _storageFilePath = Path.Combine(folder, "programas_custom.json");
+      
+            // Caminho atual (da pasta onde o projeto está rodando)
+            string currentPath = Directory.GetCurrentDirectory();
+
+            // Sobe 1 nível 
+            string solutionPath = Directory.GetParent(currentPath).FullName;
+
+            //definir local de persistência simples
+            if (!Directory.Exists(solutionPath)) Directory.CreateDirectory(solutionPath);
+            _storageFilePath = Path.Combine(solutionPath, "programas_custom.json");
 
             LoadCustomPrograms();
         }
@@ -146,9 +152,6 @@ namespace MicroOndas.Application.Services
             public string Instrucoes { get; set; } = "";
         }
 
-        // ----------------------------
-        // Execução (igual ao que tínhamos antes)
-        // ----------------------------
         public void IniciarAquecimento(int tempoSegundos, int potencia)
         {
             if (EmExecucao && !Pausado)
@@ -157,8 +160,13 @@ namespace MicroOndas.Application.Services
                 return;
             }
 
-            if (tempoSegundos < 1 || tempoSegundos > 120) throw new ArgumentException("Tempo deve estar entre 1 e 120 segundos para entrada manual.");
-            if (potencia < 1 || potencia > 10) throw new ArgumentException("Potência deve estar entre 1 e 10.");
+            potencia = potencia == 0 ? 10 : potencia;
+            tempoSegundos = tempoSegundos == 0 ? 30 : tempoSegundos;
+
+            if (tempoSegundos < 1 || tempoSegundos > 120) 
+                throw new ArgumentException("Tempo deve estar entre 1 e 120 segundos para entrada manual.");
+            if (potencia < 1 || potencia > 10) 
+                throw new ArgumentException("Potência deve estar entre 1 e 10.");
 
             _tempoRestante = tempoSegundos;
             _potenciaAtual = potencia;
@@ -194,7 +202,7 @@ namespace MicroOndas.Application.Services
 
         public string ObterDisplay()
         {
-            if (!EmExecucao) return "Micro-ondas pronto.";
+            if (!EmExecucao) return "Micro-ondas disponível.";
             int mm = _tempoRestante / 60;
             int ss = _tempoRestante % 60;
             string tempo = $"{mm:D2}:{ss:D2}";
@@ -262,18 +270,29 @@ namespace MicroOndas.Application.Services
             _processBuilder.Clear();
         }
 
+        private string FormatTime(int totalSeconds)
+        {
+            if (totalSeconds < 60)
+                return totalSeconds.ToString(); 
+
+            int minutes = totalSeconds / 60;
+            int seconds = totalSeconds % 60;
+            return $"{minutes}:{seconds:D2}"; 
+        }
+
+
         private static List<ProgramaAquecimento> InicializarProgramas() => new()
         {
             new ProgramaAquecimento("Pipoca", "Pipoca (de micro-ondas)", 3 * 60, 7, "*",
-                "Observar o barulho de estouros. Caso haja intervalo de 10s entre estouros interrompa."),
+                "Observar o barulho de estouros do milho, caso houver um intervalo de mais de 10 segundos entre um estouro e outro, interrompa o aquecimento."),
             new ProgramaAquecimento("Leite", "Leite", 5 * 60, 5, "L",
-                "Cuidado com aquecimento de líquidos: choque térmico pode causar fervura imediata."),
+                "Cuidado com aquecimento de líquidos, o choque térmico aliado ao movimento do recipiente pode causar fervura imediata causando risco de queimaduras."),
             new ProgramaAquecimento("Carnes de boi", "Carne em pedaço ou fatias", 14 * 60, 4, "C",
-                "Interrompa na metade e vire o conteúdo para aquecimento uniforme."),
+                "Interrompa o processo na metade e vire o conteúdo com a parte de baixo para cima para o descongelamento uniforme."),
             new ProgramaAquecimento("Frango", "Frango (qualquer corte)", 8 * 60, 7, "F",
-                "Interrompa na metade e vire o conteúdo para aquecimento uniforme."),
+                "Interrompa o processo na metade e vire o conteúdo com a parte de baixo para cima para o descongelamento uniforme."),
             new ProgramaAquecimento("Feijão", "Feijão congelado", 8 * 60, 9, "#",
-                "Deixe o recipiente destampado; em plástico, cuidado ao retirar.")
+                "Deixe o recipiente destampado e em casos de plástico, cuidado ao retirar o recipiente pois o mesmo pode perder resistência em altas temperaturas.")
         };
     }
 }

@@ -1,0 +1,26 @@
+﻿[
+  {
+    "Nome": "a",
+    "Alimento": "a",
+    "TempoSegundos": 30,
+    "Potencia": 5,
+    "CaractereAquecimento": "8",
+    "Instrucoes": "a"
+  },
+  {
+    "Nome": "b",
+    "Alimento": "b",
+    "TempoSegundos": 30,
+    "Potencia": 5,
+    "CaractereAquecimento": "b",
+    "Instrucoes": ""
+  },
+  {
+    "Nome": "e",
+    "Alimento": "e",
+    "TempoSegundos": 30,
+    "Potencia": 5,
+    "CaractereAquecimento": "a",
+    "Instrucoes": ""
+  }
+]
