@@ -209,7 +209,6 @@
 
         try
         {
-            // montar programa (IsCustom tratado pelo service)
             var p = new ProgramaAquecimento(NovoNome?.Trim() ?? "",
                                            NovoAlimento?.Trim() ?? "",
                                            NovoTempo,
@@ -220,7 +219,6 @@
 
             MicroOndasService.AdicionarProgramaCustomizado(p);
 
-            // limpar campos de cadastro (opcional)
             NovoNome = "";
             NovoAlimento = "";
             NovoTempo = 30;
@@ -242,7 +240,6 @@
         get => _tempoTexto ?? TempoInput.ToString();
         set
         {
-            // filtro (remove tudo que não for número ou :)
             var filtered = Regex.Replace(value ?? "", @"[^0-9:]", "");
 
             _tempoTexto = filtered;
@@ -303,7 +300,6 @@
     {
         if (ProgramaSelecionado == null)
         {
-            // Modo manual / sem programa selecionado
             TempoInput = 30;
             PotenciaInput = 10;
             CaractereInput = ".";
@@ -311,7 +307,6 @@
             return;
         }
 
-        // Preenche automaticamente com valores do programa escolhido
         TempoInput = ProgramaSelecionado.TempoSegundos;
         _tempoTexto = TempoInput.ToString();
         PotenciaInput = ProgramaSelecionado.Potencia;

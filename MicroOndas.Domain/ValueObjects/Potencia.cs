@@ -3,7 +3,7 @@
 namespace MicroOndas.Domain.ValueObjects
 {
     /// <summary>
-    /// Value object para potência (1..10). Se null -> assume 10.
+    /// Value object para potência (1..10). Se null > assume 10.
     /// </summary>
     public class Potencia
     {

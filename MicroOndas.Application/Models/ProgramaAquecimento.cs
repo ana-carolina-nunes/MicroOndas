@@ -4,12 +4,22 @@
     {
         public string Nome { get; }
         public string Alimento { get; }
-        public int TempoSegundos { get; } // pode exceder 120 para programas
-        public int Potencia { get; } // 1..10
-        public string CaractereAquecimento { get; } // não pode ser "."
+        public int TempoSegundos { get; } 
+        public int Potencia { get; } 
+        public string CaractereAquecimento { get; } 
         public string Instrucoes { get; }
-        public bool IsCustom { get; } // true se criado pelo usuário
+        public bool IsCustom { get; }
 
+        /// <summary>
+        /// Prgrama Aquecimento
+        /// </summary>
+        /// <param name="nome"></param>
+        /// <param name="alimento"></param>
+        /// <param name="tempoSegundos">pode exceder 120 para programas</param>
+        /// <param name="potencia"> 1..10</param>
+        /// <param name="caractere"></param>
+        /// <param name="instrucoes"></param>
+        /// <param name="isCustom"></param>
         public ProgramaAquecimento(string nome, string alimento, int tempoSegundos, int potencia, string caractere, string instrucoes, bool isCustom = false)
         {
             Nome = nome;

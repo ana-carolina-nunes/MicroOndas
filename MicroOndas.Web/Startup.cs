@@ -21,7 +21,6 @@ public class Startup
         services.AddRazorPages();
         services.AddServerSideBlazor();
 
-        // registrar service (app layer está referenciado pelo Web project)
         services.AddScoped<IMicroOndasService, MicroOndasService>();
     }
 

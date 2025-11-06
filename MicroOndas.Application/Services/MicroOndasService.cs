@@ -154,15 +154,11 @@ namespace MicroOndas.Application.Services
 
         public void IniciarAquecimento(int tempoSegundos, int potencia)
         {
-            // Se já estava rodando e apenas pausado → retomar
             if (EmExecucao && Pausado)
             {
                 Pausado = false;
-                //StartLoop(); // retoma com _tempoRestante intacto
                 return;
             }
-
-            // Se já está rodando e NÃO está pausado → só adiciona +30s (regra do projeto)
             if (EmExecucao && !Pausado)
             {
                 _tempoRestante = Math.Min(_tempoRestante + 30, 120);
@@ -194,15 +190,14 @@ namespace MicroOndas.Application.Services
             if (EmExecucao && Pausado)
             {
                 Pausado = false;
-                //StartLoop();
                 return;
             }
 
-            // Se já está executando e NÃO está pausado → ignorar (não substitui programa)
+            // Se já está executando e NÃO está pausado > ignorar (não substitui programa)
             if (EmExecucao)
                 return;
 
-            // Novo programa → carrega normalmente
+            // Novo programa > carrega normalmente
             _tempoRestante = programa.TempoSegundos;
             _potenciaAtual = programa.Potencia;
             _caractereAquecimento = programa.CaractereAquecimento;
