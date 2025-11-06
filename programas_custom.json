@@ -22,5 +22,21 @@
     "Potencia": 5,
     "CaractereAquecimento": "a",
     "Instrucoes": ""
+  },
+  {
+    "Nome": "ab",
+    "Alimento": "a",
+    "TempoSegundos": 30,
+    "Potencia": 5,
+    "CaractereAquecimento": "7",
+    "Instrucoes": ""
+  },
+  {
+    "Nome": "dasds",
+    "Alimento": "asda",
+    "TempoSegundos": 50,
+    "Potencia": 5,
+    "CaractereAquecimento": "4",
+    "Instrucoes": "a"
   }
 ]

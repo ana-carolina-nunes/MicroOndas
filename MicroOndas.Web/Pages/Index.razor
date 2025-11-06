@@ -1,7 +1,9 @@
 ﻿@page "/"
+@inject NavigationManager Nav
 
-<h1>Hello, world!</h1>
-
-Welcome to your new app.
-
-<SurveyPrompt Title="How is Blazor working for you?" />
+@code {
+    protected override void OnInitialized()
+    {
+        Nav.NavigateTo("/microondas", true); // true = força reload e não fica na barra
+    }
+}

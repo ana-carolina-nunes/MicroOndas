@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Threading.Tasks;
 
 public class Startup
 {
@@ -43,6 +44,12 @@ public class Startup
 
         app.UseEndpoints(endpoints =>
         {
+            endpoints.MapGet("/", context =>
+            {
+                context.Response.Redirect("/microondas");
+                return Task.CompletedTask;
+            });
+
             endpoints.MapBlazorHub();
             endpoints.MapFallbackToPage("/_Host");
         });
